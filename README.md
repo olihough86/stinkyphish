@@ -11,7 +11,7 @@ stinkyphish run
 
 ## Notes
 
-additional flags and configuation coming soon 
+additional flags and configuation coming soon  
 please submit PRs for the whitelist is it in it's infancy and needs work
 ## Support on Beerpay
 Hey dude! Help me out for a couple of :beers:!

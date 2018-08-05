@@ -1,5 +1,5 @@
 # stinkyphish
-Monitor Certificate Transparency Log For Phishy Domains
+Monitor Certificate Transparency Logs For Phishing Domains
 
 ## Install
 

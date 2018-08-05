@@ -101,10 +101,10 @@ var runCmd = &cobra.Command{
 						if strings.Contains(domains[i], "xn--") == true {
 							p := idna.New()
 							u, _ := p.ToUnicode(domains[i])
-							uwords := re.Split(u, -1)
+							words := re.Split(u, -1)
 							for k, v := range lists.Keywords {
 								if v >= 60 {
-									for _, w := range uwords {
+									for _, w := range words {
 										if levenshtein.DistanceForStrings([]rune(k), []rune(w), levenshtein.DefaultOptions) <= 2 {
 											score+= 100
 											log.Warn(u)

@@ -29,6 +29,8 @@ import (
 	"strings"
 	"sync"
 
+	"golang.org/x/net/idna"
+
 	log "github.com/Sirupsen/logrus"
 	homedir "github.com/mitchellh/go-homedir"
 
@@ -93,6 +95,17 @@ var runCmd = &cobra.Command{
 									score += 10
 								}
 							}
+						}
+
+						// Punycode domains (this is very early Homoglyph detection)
+						if strings.Contains(domains[i], "xn--") == true {
+							u, err := idna.ToUnicode(domains[i])
+							if err != nil {
+								log.Info("broken punycode")
+								return
+							}
+							log.Info(u)
+							return
 						}
 
 						// Dodgy tlds

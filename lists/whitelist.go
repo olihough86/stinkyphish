@@ -51,6 +51,7 @@ var Whitelist = [...]string{
 	".oauth.com",
 	".ci-cd.com",
 	".magentosite.cloud",
+	".orckestra.cloud",
 }
 
 // Prefixes to exlcude, to avoid many duplicates

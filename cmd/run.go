@@ -29,13 +29,15 @@ import (
 	"strings"
 	"sync"
 
+	"golang.org/x/net/idna"
+
 	log "github.com/Sirupsen/logrus"
 	homedir "github.com/mitchellh/go-homedir"
 
 	"stinkyphish/lists"
 
 	"github.com/CaliDog/certstream-go"
-	"github.com/arbovm/levenshtein"
+	"github.com/texttheater/golang-levenshtein/levenshtein"
 	"github.com/spf13/cobra"
 )
 
@@ -67,7 +69,7 @@ var runCmd = &cobra.Command{
 						status := 0
 						iswildcard := false
 						//abuseEmail := ""
-						re := regexp.MustCompile("\\W+")
+						re := regexp.MustCompile("\\-|\\.")
 						words := re.Split(domains[i], -1)
 
 						//Skip whitelist suffix
@@ -93,6 +95,24 @@ var runCmd = &cobra.Command{
 									score += 10
 								}
 							}
+						}
+
+						// Punycode domains (this is very early Homoglyph detection)
+						if strings.Contains(domains[i], "xn--") == true {
+							p := idna.New()
+							u, _ := p.ToUnicode(domains[i])
+							words := re.Split(u, -1)
+							for k, v := range lists.Keywords {
+								if v >= 60 {
+									for _, w := range words {
+										if levenshtein.DistanceForStrings([]rune(k), []rune(w), levenshtein.DefaultOptions) <= 2 {
+											score+= 100
+											log.Warn(u)
+										}
+									}
+								}
+							}
+
 						}
 
 						// Dodgy tlds
@@ -124,7 +144,7 @@ var runCmd = &cobra.Command{
 						for k, v := range lists.Keywords {
 							if v >= 60 {
 								for _, w := range words {
-									if levenshtein.Distance(k, w) == 1 {
+									if levenshtein.DistanceForStrings([]rune(k), []rune(w), levenshtein.DefaultOptions) == 1 {
 										score += 60
 									}
 								}

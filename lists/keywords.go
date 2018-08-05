@@ -116,6 +116,7 @@ var Keywords = map[string]int{
 	"bitconnect":   60,
 	"coinsbank":    60,
 	"ether":        40,
+	"myetherwallet": 60,
 
 	// Bank/money
 	"paypal":              70,

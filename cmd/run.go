@@ -22,6 +22,7 @@ package cmd
 
 import (
 	"crypto/tls"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"os"
@@ -37,8 +38,8 @@ import (
 	"stinkyphish/lists"
 
 	"github.com/CaliDog/certstream-go"
-	"github.com/texttheater/golang-levenshtein/levenshtein"
 	"github.com/spf13/cobra"
+	"github.com/texttheater/golang-levenshtein/levenshtein"
 )
 
 // runCmd represents the run command
@@ -68,6 +69,7 @@ var runCmd = &cobra.Command{
 						score := 0
 						status := 0
 						iswildcard := false
+						org := ""
 						//abuseEmail := ""
 						re := regexp.MustCompile("\\-|\\.")
 						words := re.Split(domains[i], -1)
@@ -106,7 +108,7 @@ var runCmd = &cobra.Command{
 								if v >= 60 {
 									for _, w := range words {
 										if levenshtein.DistanceForStrings([]rune(k), []rune(w), levenshtein.DefaultOptions) <= 2 {
-											score+= 100
+											score += 100
 											log.Warn(u)
 										}
 									}
@@ -177,6 +179,17 @@ var runCmd = &cobra.Command{
 							if err == nil {
 								status = resp.StatusCode
 							}
+							resp, err = http.Get("https://ipinfo.io/" + ipaddr.IP.String() + "/org")
+
+							if err == nil {
+								defer resp.Body.Close()
+								if resp.StatusCode == http.StatusOK {
+									bodybytes, _ := ioutil.ReadAll(resp.Body)
+									bodystring := string(bodybytes)
+									org = bodystring
+								}
+							}
+
 							f, err := os.OpenFile(home+"/stinkyphish.txt", os.O_APPEND|os.O_WRONLY, 0600)
 							if err != nil {
 								f, err = os.Create(home + "/stinkyphish.txt")
@@ -193,6 +206,7 @@ var runCmd = &cobra.Command{
 								"score":    score,
 								"status":   status,
 								"IP":       ipaddr,
+								"org":      org,
 								//"abuse":    abuseEmail,
 							}).Warn(domains[i])
 						} else {

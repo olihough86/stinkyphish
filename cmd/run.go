@@ -69,7 +69,7 @@ var runCmd = &cobra.Command{
 						status := 0
 						iswildcard := false
 						//abuseEmail := ""
-						re := regexp.MustCompile("\\W+")
+						re := regexp.MustCompile("\\-|\\.")
 						words := re.Split(domains[i], -1)
 
 						//Skip whitelist suffix

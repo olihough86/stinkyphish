@@ -37,7 +37,7 @@ import (
 	"stinkyphish/lists"
 
 	"github.com/CaliDog/certstream-go"
-	"github.com/arbovm/levenshtein"
+	"github.com/texttheater/golang-levenshtein/levenshtein"
 	"github.com/spf13/cobra"
 )
 
@@ -99,13 +99,20 @@ var runCmd = &cobra.Command{
 
 						// Punycode domains (this is very early Homoglyph detection)
 						if strings.Contains(domains[i], "xn--") == true {
-							u, err := idna.ToUnicode(domains[i])
-							if err != nil {
-								log.Info("broken punycode")
-								return
+							p := idna.New()
+							u, _ := p.ToUnicode(domains[i])
+							uwords := re.Split(u, -1)
+							for k, v := range lists.Keywords {
+								if v > 60 {
+									for _, w := range uwords {
+										if levenshtein.DistanceForStrings([]rune(k), []rune(w), levenshtein.DefaultOptions) <= 2 {
+											score+= 100
+											log.Warn(u)
+										}
+									}
+								}
 							}
-							log.Info(u)
-							return
+
 						}
 
 						// Dodgy tlds
@@ -137,7 +144,7 @@ var runCmd = &cobra.Command{
 						for k, v := range lists.Keywords {
 							if v >= 60 {
 								for _, w := range words {
-									if levenshtein.Distance(k, w) == 1 {
+									if levenshtein.DistanceForStrings([]rune(k), []rune(w), levenshtein.DefaultOptions) == 1 {
 										score += 60
 									}
 								}

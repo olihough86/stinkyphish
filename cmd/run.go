@@ -160,13 +160,11 @@ var runCmd = &cobra.Command{
 
 						// Get more infomation for high scoring domains
 						if score >= 100 {
+							// Get users home dir for logging
 							home, _ := homedir.Dir()
+							// Resolve to IP. If domain does not resolve just skip it
 							ipaddr, err := net.ResolveIPAddr("ip", domains[i])
 							if err != nil {
-								//log.WithFields(log.Fields{
-								//	"wildcard": iswildcard,
-								//	"score":    score,
-								//	}).Debug(domains[i])
 								return
 							}
 							/*if ipaddr != nil {
@@ -175,10 +173,12 @@ var runCmd = &cobra.Command{
 									abuseEmail = dnstxt[0]
 								}
 							}*/
+							// Make http HEAD request and record the status code
 							resp, err := http.Head("https://" + domains[i])
 							if err == nil {
 								status = resp.StatusCode
 							}
+							// Lookup IP on ipinfo.io and get the AS name/number
 							resp, err = http.Get("https://ipinfo.io/" + ipaddr.IP.String() + "/org")
 							if err == nil {
 								defer resp.Body.Close()
@@ -188,7 +188,7 @@ var runCmd = &cobra.Command{
 									org = strings.TrimRight(bodystring, "\n")
 								}
 							}
-
+							// Log domain to stinkyphish.txt in users home dir
 							f, err := os.OpenFile(home+"/stinkyphish.txt", os.O_APPEND|os.O_WRONLY, 0600)
 							if err != nil {
 								f, err = os.Create(home + "/stinkyphish.txt")
@@ -200,6 +200,7 @@ var runCmd = &cobra.Command{
 							if _, err = f.WriteString(domains[i] + "\n"); err != nil {
 								panic(err)
 							}
+							// Score was over 100 so extra info is displayed
 							log.WithFields(log.Fields{
 								"wildcard": iswildcard,
 								"score":    score,
@@ -209,6 +210,7 @@ var runCmd = &cobra.Command{
 								//"abuse":    abuseEmail,
 							}).Warn(domains[i])
 						} else {
+							// Score was less than 100 so baic info is displayed
 							log.WithFields(log.Fields{
 								"wildcard": iswildcard,
 								"score":    score,

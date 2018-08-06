@@ -185,7 +185,7 @@ var runCmd = &cobra.Command{
 								if resp.StatusCode == http.StatusOK {
 									bodybytes, _ := ioutil.ReadAll(resp.Body)
 									bodystring := string(bodybytes)
-									org = bodystring[:2]
+									org = strings.TrimRight(bodystring, "\n")
 								}
 							}
 

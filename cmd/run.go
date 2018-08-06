@@ -163,10 +163,10 @@ var runCmd = &cobra.Command{
 							home, _ := homedir.Dir()
 							ipaddr, err := net.ResolveIPAddr("ip", domains[i])
 							if err != nil {
-								log.WithFields(log.Fields{
-									"wildcard": iswildcard,
-									"score":    score,
-								}).Debug(domains[i])
+								//log.WithFields(log.Fields{
+								//	"wildcard": iswildcard,
+								//	"score":    score,
+								//	}).Debug(domains[i])
 								return
 							}
 							/*if ipaddr != nil {
@@ -180,13 +180,12 @@ var runCmd = &cobra.Command{
 								status = resp.StatusCode
 							}
 							resp, err = http.Get("https://ipinfo.io/" + ipaddr.IP.String() + "/org")
-
 							if err == nil {
 								defer resp.Body.Close()
 								if resp.StatusCode == http.StatusOK {
 									bodybytes, _ := ioutil.ReadAll(resp.Body)
 									bodystring := string(bodybytes)
-									org = bodystring
+									org = bodystring[:2]
 								}
 							}
 

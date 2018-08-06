@@ -52,6 +52,7 @@ var Whitelist = [...]string{
 	".ci-cd.com",
 	".magentosite.cloud",
 	".orckestra.cloud",
+	".mybluemix.net",
 }
 
 // Prefixes to exlcude, to avoid many duplicates

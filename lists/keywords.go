@@ -161,17 +161,17 @@ var Keywords = map[string]int{
 	"tdbank":              40,
 
 	// Ecommerce
-	"amazon":     60,
-	"overstock":  60,
-	"alibaba":    60,
-	"aliexpress": 60,
-	"leboncoin":  70,
+	"amazon":    60,
+	"overstock": 60,
+	//"alibaba":    60, alibaba and aliepress
+	//"aliexpress": 60, generate too many false positives
+	"leboncoin": 70,
 
 	// Other
-	"netflix":        70,
-	"skype":          60,
-	"github":         60,
-	"uber":           50,
+	"netflix": 70,
+	"skype":   60,
+	"github":  60,
+	//"uber":           50, Too many false positives
 	"lyft":           50,
 	"britishairways": 60,
 	"easyjet":        60,

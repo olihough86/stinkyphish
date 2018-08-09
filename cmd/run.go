@@ -42,7 +42,6 @@ import (
 	"github.com/texttheater/golang-levenshtein/levenshtein"
 )
 
-// runCmd represents the run command
 var runCmd = &cobra.Command{
 	Use:   "run",
 	Short: "Start monitoring certificate transparency logs for stinky domains",
@@ -57,7 +56,6 @@ var runCmd = &cobra.Command{
 				if err != nil {
 					log.Fatal("Error decoding jq string")
 				}
-
 				http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 				domains, err := jq.ArrayOfStrings("data", "leaf_cert", "all_domains")
 				arrlen := len(domains)
@@ -70,22 +68,11 @@ var runCmd = &cobra.Command{
 						status := 0
 						iswildcard := false
 						org := ""
-						//abuseEmail := ""
-						re := regexp.MustCompile("\\-|\\.")
-						words := re.Split(domains[i], -1)
+						words := regexp.MustCompile("\\-|\\.").Split(domains[i], -1)
 
-						//Skip whitelist suffix
-						for _, wl := range lists.Whitelist {
-							if strings.HasSuffix(domains[i], wl) {
-								return
-							}
-						}
-
-						//Skip whitelist prefix
-						for _, wlp := range lists.Prefixes {
-							if strings.HasPrefix(domains[i], wlp) {
-								return
-							}
+						// Check domain against whitelists
+						if chkWhitelist(domains[i]) {
+							return
 						}
 
 						// Strip wildcard character *. and check for fake tld
@@ -98,12 +85,11 @@ var runCmd = &cobra.Command{
 								}
 							}
 						}
-
 						// Punycode domains (this is very early Homoglyph detection)
 						if strings.Contains(domains[i], "xn--") == true {
 							p := idna.New()
 							u, _ := p.ToUnicode(domains[i])
-							words := re.Split(u, -1)
+							words := regexp.MustCompile("\\-|\\.").Split(u, -1)
 							for k, v := range lists.Keywords {
 								if v >= 60 {
 									for _, w := range words {
@@ -114,9 +100,7 @@ var runCmd = &cobra.Command{
 									}
 								}
 							}
-
 						}
-
 						// Dodgy tlds
 						for _, t := range lists.Tlds {
 							if strings.HasSuffix(domains[i], t) {
@@ -124,24 +108,20 @@ var runCmd = &cobra.Command{
 								break
 							}
 						}
-
 						// Keywords
 						for k, v := range lists.Keywords {
 							if strings.Contains(domains[i], k) {
 								score += v
 							}
 						}
-
 						// Nested Subdomains
 						if strings.Count(domains[i], ".") > 3 {
 							score += strings.Count(domains[i], ".") * 3
 						}
-
 						// Lots of hyphens
 						if (strings.Count(domains[i], "-") > 3 == true) && (strings.Contains(domains[i], "xn--") == false) {
 							score += strings.Count(domains[i], "-") * 3
 						}
-
 						// levenshtein distance for important keywords
 						for k, v := range lists.Keywords {
 							if v >= 60 {
@@ -152,12 +132,10 @@ var runCmd = &cobra.Command{
 								}
 							}
 						}
-
 						// TODO optional baseline via --baseline
 						if score < 90 {
 							return
 						}
-
 						// Get more infomation for high scoring domains
 						if score >= 100 {
 							// Get users home dir for logging
@@ -167,12 +145,6 @@ var runCmd = &cobra.Command{
 							if err != nil {
 								return
 							}
-							/*if ipaddr != nil {
-								dnstxt, err := net.LookupTXT(ipaddr.String() + ".abuse-contacts.abusix.org")
-								if err == nil {
-									abuseEmail = dnstxt[0]
-								}
-							}*/
 							// Make http HEAD request and record the status code
 							resp, err := http.Head("https://" + domains[i])
 							if err == nil {
@@ -207,7 +179,6 @@ var runCmd = &cobra.Command{
 								"status":   status,
 								"IP":       ipaddr,
 								"org":      org,
-								//"abuse":    abuseEmail,
 							}).Warn(domains[i])
 						} else {
 							// Score was less than 100 so baic info is displayed
@@ -215,7 +186,6 @@ var runCmd = &cobra.Command{
 								"wildcard": iswildcard,
 								"score":    score,
 								"status":   status,
-								//"abuse":    abuseEmail,
 							}).Info(domains[i])
 						}
 					}(i)
@@ -230,4 +200,20 @@ var runCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(runCmd)
+}
+
+func chkWhitelist(domain string) bool {
+	//Skip whitelist suffix
+	for _, wl := range lists.Whitelist {
+		if strings.HasSuffix(domain, wl) {
+			return true
+		}
+	}
+	//Skip whitelist prefix
+	for _, wl := range lists.Prefixes {
+		if strings.HasPrefix(domain, wl) {
+			return true
+		}
+	}
+	return false
 }

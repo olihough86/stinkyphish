@@ -42,7 +42,18 @@ import (
 	"github.com/texttheater/golang-levenshtein/levenshtein"
 )
 
-// runCmd represents the run command
+type phish struct {
+	domain   string
+	words    []string
+	udomain  string
+	uwords   []string
+	IP       string
+	score    int
+	status   int
+	org      string
+	wildcard bool
+}
+
 var runCmd = &cobra.Command{
 	Use:   "run",
 	Short: "Start monitoring certificate transparency logs for stinky domains",
@@ -57,7 +68,6 @@ var runCmd = &cobra.Command{
 				if err != nil {
 					log.Fatal("Error decoding jq string")
 				}
-
 				http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 				domains, err := jq.ArrayOfStrings("data", "leaf_cert", "all_domains")
 				arrlen := len(domains)
@@ -66,128 +76,90 @@ var runCmd = &cobra.Command{
 				for i := 0; i < arrlen; i++ {
 					go func(i int) {
 						defer wg.Done()
-						score := 0
-						status := 0
-						iswildcard := false
-						org := ""
-						//abuseEmail := ""
-						re := regexp.MustCompile("\\-|\\.")
-						words := re.Split(domains[i], -1)
 
-						//Skip whitelist suffix
-						for _, wl := range lists.Whitelist {
-							if strings.HasSuffix(domains[i], wl) {
-								return
-							}
+						phish := newPhish(domains[i])
+
+						// Check domain against whitelists
+						if chkWhitelist(phish.domain) {
+							return
 						}
 
-						//Skip whitelist prefix
-						for _, wlp := range lists.Prefixes {
-							if strings.HasPrefix(domains[i], wlp) {
-								return
-							}
+						// Process wildcard certifcates
+						if strings.HasPrefix(phish.domain, "*.") {
+							phish.domain = procWildcard(phish.domain, phish.words, &phish.score)
+							phish.wildcard = true
 						}
 
-						// Strip wildcard character *. and check for fake tld
-						if strings.HasPrefix(domains[i], "*.") {
-							domains[i] = strings.TrimPrefix(domains[i], "*.")
-							iswildcard = true
-							for _, ftld := range lists.Faketlds {
-								if words[0] == ftld {
-									score += 10
-								}
-							}
+						// Process punycode domains
+						if phish.udomain != "" {
+							procDistance(phish.uwords, &phish.score, 2, 100)
 						}
 
-						// Punycode domains (this is very early Homoglyph detection)
-						if strings.Contains(domains[i], "xn--") == true {
-							p := idna.New()
-							u, _ := p.ToUnicode(domains[i])
-							words := re.Split(u, -1)
-							for k, v := range lists.Keywords {
-								if v >= 60 {
-									for _, w := range words {
-										if levenshtein.DistanceForStrings([]rune(k), []rune(w), levenshtein.DefaultOptions) <= 2 {
-											score += 100
-											log.Warn(u)
-										}
-									}
-								}
-							}
-
-						}
-
-						// Dodgy tlds
+						// Common TLDs used for phishing
 						for _, t := range lists.Tlds {
-							if strings.HasSuffix(domains[i], t) {
-								score += 25
+							if strings.HasSuffix(phish.domain, t) {
+								phish.score += 25
 								break
 							}
 						}
 
-						// Keywords
+						// Check against the list of common keywords
 						for k, v := range lists.Keywords {
-							if strings.Contains(domains[i], k) {
-								score += v
+							if strings.Contains(phish.domain, k) {
+								phish.score += v
 							}
 						}
 
-						// Nested Subdomains
-						if strings.Count(domains[i], ".") > 3 {
-							score += strings.Count(domains[i], ".") * 3
+						// Many nested subdomains are a red flag
+						if strings.Count(phish.domain, ".") > 3 {
+							phish.score += strings.Count(phish.domain, ".") * 3
 						}
 
-						// Lots of hyphens
-						if (strings.Count(domains[i], "-") > 3 == true) && (strings.Contains(domains[i], "xn--") == false) {
-							score += strings.Count(domains[i], "-") * 3
+						// Lots of hyphens are a red flag
+						if (strings.Count(phish.domain, "-") > 3 == true) && (strings.Contains(phish.domain, "xn--") == false) {
+							phish.score += strings.Count(phish.domain, "-") * 3
 						}
 
-						// levenshtein distance for important keywords
-						for k, v := range lists.Keywords {
-							if v >= 60 {
-								for _, w := range words {
-									if levenshtein.DistanceForStrings([]rune(k), []rune(w), levenshtein.DefaultOptions) == 1 {
-										score += 60
-									}
-								}
-							}
+						// Check Levenshtein distance
+						if phish.udomain == "" {
+							procDistance(phish.words, &phish.score, 1, 60)
 						}
 
-						// TODO optional baseline via --baseline
-						if score < 90 {
+						// Skip the domain if the score has not reached the baseline
+						if phish.score < 90 {
 							return
 						}
 
 						// Get more infomation for high scoring domains
-						if score >= 100 {
+						if phish.score >= 100 {
+
 							// Get users home dir for logging
 							home, _ := homedir.Dir()
-							// Resolve to IP. If domain does not resolve just skip it
-							ipaddr, err := net.ResolveIPAddr("ip", domains[i])
+
+							// Resolve the domain to an IP address, skip if it does not resolve.
+							IP, err := net.ResolveIPAddr("ip", phish.domain)
 							if err != nil {
 								return
 							}
-							/*if ipaddr != nil {
-								dnstxt, err := net.LookupTXT(ipaddr.String() + ".abuse-contacts.abusix.org")
-								if err == nil {
-									abuseEmail = dnstxt[0]
-								}
-							}*/
-							// Make http HEAD request and record the status code
-							resp, err := http.Head("https://" + domains[i])
-							if err == nil {
-								status = resp.StatusCode
-							}
+							phish.IP = IP.IP.String()
+
 							// Lookup IP on ipinfo.io and get the AS name/number
-							resp, err = http.Get("https://ipinfo.io/" + ipaddr.IP.String() + "/org")
+							resp, err := http.Get("https://ipinfo.io/" + phish.IP + "/org")
 							if err == nil {
 								defer resp.Body.Close()
 								if resp.StatusCode == http.StatusOK {
 									bodybytes, _ := ioutil.ReadAll(resp.Body)
 									bodystring := string(bodybytes)
-									org = strings.TrimRight(bodystring, "\n")
+									phish.org = strings.TrimRight(bodystring, "\n")
 								}
 							}
+
+							// Make http HEAD request and record the status code
+							resp, err = http.Head("https://" + phish.domain)
+							if err == nil {
+								phish.status = resp.StatusCode
+							}
+
 							// Log domain to stinkyphish.txt in users home dir
 							f, err := os.OpenFile(home+"/stinkyphish.txt", os.O_APPEND|os.O_WRONLY, 0600)
 							if err != nil {
@@ -197,26 +169,24 @@ var runCmd = &cobra.Command{
 								}
 							}
 							defer f.Close()
-							if _, err = f.WriteString(domains[i] + "\n"); err != nil {
+							if _, err = f.WriteString(phish.domain + "\n"); err != nil {
 								panic(err)
 							}
 							// Score was over 100 so extra info is displayed
 							log.WithFields(log.Fields{
-								"wildcard": iswildcard,
-								"score":    score,
-								"status":   status,
-								"IP":       ipaddr,
-								"org":      org,
-								//"abuse":    abuseEmail,
-							}).Warn(domains[i])
+								"wildcard": phish.wildcard,
+								"score":    phish.score,
+								"status":   phish.status,
+								"IP":       phish.IP,
+								"org":      phish.org,
+							}).Warn(phish.domain)
 						} else {
 							// Score was less than 100 so baic info is displayed
 							log.WithFields(log.Fields{
-								"wildcard": iswildcard,
-								"score":    score,
-								"status":   status,
-								//"abuse":    abuseEmail,
-							}).Info(domains[i])
+								"wildcard": phish.wildcard,
+								"score":    phish.score,
+								"status":   phish.status,
+							}).Info(phish.domain)
 						}
 					}(i)
 				}
@@ -230,4 +200,55 @@ var runCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(runCmd)
+}
+
+func newPhish(domain string) phish {
+	phish := phish{}
+	phish.domain = domain
+	phish.udomain = ""
+	phish.words = regexp.MustCompile("\\-|\\.").Split(domain, -1)
+	phish.score = 0
+	phish.wildcard = false
+	if strings.Contains(domain, "xn--") {
+		p := idna.New()
+		phish.udomain, _ = p.ToUnicode(domain)
+		phish.uwords = regexp.MustCompile("\\-|\\.").Split(phish.udomain, -1)
+	}
+	return phish
+}
+
+func chkWhitelist(domain string) bool {
+	for _, wl := range lists.Whitelist {
+		if strings.HasSuffix(domain, wl) {
+			return true
+		}
+	}
+	for _, wl := range lists.Prefixes {
+		if strings.HasPrefix(domain, wl) {
+			return true
+		}
+	}
+	return false
+}
+
+func procWildcard(domain string, w []string, s *int) string {
+	domain = strings.TrimPrefix(domain, "*.")
+	for _, ftld := range lists.Faketlds {
+		if w[0] == ftld {
+			*s += 10
+		}
+	}
+	return domain
+}
+
+func procDistance(w []string, s *int, d int, x int) {
+	for key, v := range lists.Keywords {
+		if v >= 60 {
+			for _, word := range w {
+				if levenshtein.DistanceForStrings([]rune(key), []rune(word), levenshtein.DefaultOptions) <= d {
+					*s += x
+				}
+			}
+		}
+	}
 }

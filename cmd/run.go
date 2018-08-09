@@ -179,6 +179,7 @@ var runCmd = &cobra.Command{
 								"status":   phish.status,
 								"IP":       phish.IP,
 								"org":      phish.org,
+								"unicode":  phish.udomain,
 							}).Warn(phish.domain)
 						} else {
 							// Score was less than 100 so baic info is displayed
@@ -186,6 +187,7 @@ var runCmd = &cobra.Command{
 								"wildcard": phish.wildcard,
 								"score":    phish.score,
 								"status":   phish.status,
+								"unicode":  phish.udomain,
 							}).Info(phish.domain)
 						}
 					}(i)

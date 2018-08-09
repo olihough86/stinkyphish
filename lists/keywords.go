@@ -170,7 +170,7 @@ var Keywords = map[string]int{
 	// Other
 	"netflix": 70,
 	"skype":   60,
-	"github":  60,
+	//"github":  60, too much spam
 	//"uber":           50, Too many false positives
 	"lyft":           50,
 	"britishairways": 60,

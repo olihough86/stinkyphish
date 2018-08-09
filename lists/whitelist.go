@@ -54,6 +54,7 @@ var Whitelist = [...]string{
 	".orckestra.cloud",
 	".mybluemix.net",
 	".scalecommerce.cloud",
+	".dyson.cloud",
 }
 
 // Prefixes to exlcude, to avoid many duplicates

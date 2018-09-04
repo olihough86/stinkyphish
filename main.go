@@ -22,7 +22,7 @@ package main
 
 import (
 	"fmt"
-	"stinkyphish/cmd"
+	"github.com/olihough86/stinkyphish/cmd"
 )
 
 func main() {

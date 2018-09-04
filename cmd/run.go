@@ -35,7 +35,7 @@ import (
 	log "github.com/Sirupsen/logrus"
 	homedir "github.com/mitchellh/go-homedir"
 
-	"stinkyphish/lists"
+	"github.com/olihough86/stinkyphish/lists"
 
 	"github.com/CaliDog/certstream-go"
 	"github.com/spf13/cobra"

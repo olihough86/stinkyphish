@@ -84,7 +84,7 @@ var runCmd = &cobra.Command{
 							return
 						}
 
-						// Process wildcard certifcates
+						// Process wildcard certificates
 						if strings.HasPrefix(phish.domain, "*.") {
 							phish.domain = procWildcard(phish.domain, phish.words, &phish.score)
 							phish.wildcard = true
